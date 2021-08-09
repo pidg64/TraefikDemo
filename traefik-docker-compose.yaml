@@ -1,0 +1,56 @@
+version: '3.3'
+
+services:
+
+  reverse-proxy:
+    image: traefik:v2.4
+    ports:
+      - 80:80
+      - 8090:8080
+    volumes:
+      # Add Docker as a mounted volume, so that Traefik can read the labels of other services
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command:
+      # Enable the Dashboard and API
+      - "--api.insecure=true"
+      # Enable Docker in Traefik, so that it reads labels from Docker services
+      - "--providers.docker"
+      - "--providers.docker.swarmmode=true"
+      # Do not expose all Docker services, only the ones explicitly exposed
+      - "--providers.docker.exposedbydefault=false"
+      # Create an entrypoint "web" listening on port 80
+      - "--entrypoints.webserver.address=:80"
+      # Enable the access log, with HTTP requests
+      #- "--accesslog"
+      # Enable the Traefik log, for configurations and errors
+      - "--log.level=DEBUG"
+    networks:
+      - dmz
+
+  whoami-1:
+    image: "traefik/whoami"
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.services.whoami-1.loadbalancer.server.port=80"
+        - "traefik.http.routers.whoami-1.rule=Host(`whoami-1.localhost`)"
+        - "traefik.http.routers.whoami-1.entrypoints=webserver"
+        - "traefik.docker.network=dmz"
+    networks:
+      - dmz 
+   
+  whoami-2:
+    image: "traefik/whoami"
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.services.whoami-2.loadbalancer.server.port=80"
+        - "traefik.http.routers.whoami-2.rule=Host(`whoami-2.localhost`)"
+        - "traefik.http.routers.whoami-2.entrypoints=webserver"
+        - "traefik.docker.network=dmz"
+    networks:
+      - dmz
+
+networks:
+  dmz:
+    external: true
